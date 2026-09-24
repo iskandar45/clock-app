@@ -14,6 +14,7 @@ type Settings = {
   skin: Skin
 }
 
+/** Keep in sync with the pre-paint skin script in index.html. */
 const STORAGE_KEY = "chrono.settings.v1"
 
 const SKINS: { id: Skin; label: string }[] = [
@@ -60,13 +61,26 @@ const DEFAULTS: Settings = {
   skin: "phosphor",
 }
 
-const loadSettings = (): Settings => {
+/** Guards stale/garbage localStorage values: a zone id Intl cannot format
+ *  would throw inside readClock on every tick. "" (device zone) is always ok. */
+export const isUsableZone = (zone: unknown): zone is string => {
+  if (typeof zone !== "string") return false
+  if (zone === "") return true
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: zone })
+    return true
+  } catch {
+    return false
+  }
+}
+
+export const loadSettings = (): Settings => {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULTS
     const saved = JSON.parse(raw) as Partial<Settings>
     return {
-      zone: typeof saved.zone === "string" ? saved.zone : DEFAULTS.zone,
+      zone: isUsableZone(saved.zone) ? saved.zone : DEFAULTS.zone,
       hour12: typeof saved.hour12 === "boolean" ? saved.hour12 : DEFAULTS.hour12,
       showSeconds:
         typeof saved.showSeconds === "boolean" ? saved.showSeconds : DEFAULTS.showSeconds,
@@ -128,11 +142,13 @@ const useFrames = (active: boolean) => {
   useEffect(() => {
     if (!active) return
     // Seed the frame immediately so the first paint after starting is accurate.
-    setFrame(Date.now())
+    // Must share the clock with Stopwatch.startedAt (performance.now), or the
+    // elapsed-time difference explodes to epoch scale.
+    setFrame(performance.now())
 
     let handle = 0
     const loop = () => {
-      setFrame(Date.now())
+      setFrame(performance.now())
       handle = window.requestAnimationFrame(loop)
     }
     handle = window.requestAnimationFrame(loop)
@@ -146,7 +162,7 @@ const useFrames = (active: boolean) => {
 /*  Formatting                                                                 */
 /* -------------------------------------------------------------------------- */
 
-const pad = (value: number) => String(value).padStart(2, "0")
+export const pad = (value: number) => String(value).padStart(2, "0")
 
 const formatters = new Map<string, Intl.DateTimeFormat>()
 
@@ -164,7 +180,7 @@ const partOf = (parts: Intl.DateTimeFormatPart[], type: string) =>
   parts.find((part) => part.type === type)?.value ?? ""
 
 /** `+HH:MM` for the offset in minutes; `Z` at zero. */
-const formatOffset = (minutes: number): string => {
+export const formatOffset = (minutes: number): string => {
   if (minutes === 0) return "Z"
   const abs = Math.abs(minutes)
   return `${minutes < 0 ? "-" : "+"}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
@@ -184,7 +200,7 @@ type Reading = {
   abbreviation: string
 }
 
-const readClock = (now: number, timeZone: string): Reading => {
+export const readClock = (now: number, timeZone: string): Reading => {
   const date = new Date(now)
 
   const display = formatterFor(timeZone, {
@@ -237,7 +253,7 @@ const readClock = (now: number, timeZone: string): Reading => {
 }
 
 /** 14:17:03 style text, or 2:17:03 PM when 12-hour mode is on. */
-const spokenTime = (reading: Reading, hour12: boolean, showSeconds: boolean) => {
+export const spokenTime = (reading: Reading, hour12: boolean, showSeconds: boolean) => {
   const hour = hour12 ? reading.hour % 12 || 12 : reading.hour
   const body = showSeconds
     ? `${hour}:${pad(reading.minute)}:${pad(reading.second)}`
@@ -245,7 +261,7 @@ const spokenTime = (reading: Reading, hour12: boolean, showSeconds: boolean) => 
   return hour12 ? `${body} ${reading.hour < 12 ? "AM" : "PM"}` : body
 }
 
-const formatStopwatch = (ms: number) => {
+export const formatStopwatch = (ms: number) => {
   const hundredths = Math.floor(ms / 10)
   const seconds = Math.floor(hundredths / 100)
   const minutes = Math.floor(seconds / 60)
