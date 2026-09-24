@@ -163,6 +163,13 @@ const formatterFor = (timeZone: string, options: Intl.DateTimeFormatOptions) => 
 const partOf = (parts: Intl.DateTimeFormatPart[], type: string) =>
   parts.find((part) => part.type === type)?.value ?? ""
 
+/** `+HH:MM` for the offset in minutes; `Z` at zero. */
+const formatOffset = (minutes: number): string => {
+  if (minutes === 0) return "Z"
+  const abs = Math.abs(minutes)
+  return `${minutes < 0 ? "-" : "+"}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
+}
+
 type Reading = {
   hour: number
   minute: number
@@ -171,7 +178,7 @@ type Reading = {
   day: string
   month: string
   year: string
-  /** Machine-readable wall-clock stamp for <time datetime>. */
+  /** Machine-readable wall-clock stamp for <time datetime>, with UTC offset. */
   iso: string
   /** Zone abbreviation, e.g. "GMT+2" or "JST". */
   abbreviation: string
@@ -202,6 +209,18 @@ const readClock = (now: number, timeZone: string): Reading => {
   const minute = Number(partOf(display, "minute"))
   const second = Number(partOf(display, "second"))
 
+  // Zone-local wall time re-read as if it were UTC, minus the true epoch, gives
+  // the zone's UTC offset at this instant (DST-correct, no longOffset needed).
+  const wallAsUtc = Date.UTC(
+    Number(partOf(meta, "year")),
+    Number(partOf(meta, "month")) - 1,
+    Number(partOf(meta, "day")),
+    hour,
+    minute,
+    second,
+  )
+  const offset = formatOffset(Math.round((wallAsUtc - date.getTime()) / 60_000))
+
   return {
     hour,
     minute,
@@ -212,7 +231,7 @@ const readClock = (now: number, timeZone: string): Reading => {
     year: partOf(display, "year"),
     iso: `${partOf(meta, "year")}-${partOf(meta, "month")}-${partOf(meta, "day")}T${pad(
       hour,
-    )}:${pad(minute)}:${pad(second)}`,
+    )}:${pad(minute)}:${pad(second)}${offset}`,
     abbreviation: partOf(meta, "timeZoneName"),
   }
 }
@@ -285,6 +304,7 @@ const AnalogFace = ({
 const Stopwatch = () => {
   const [running, setRunning] = useState(false)
   const [base, setBase] = useState(0)
+  // Monotonic timestamp of the current run's start; 0 when not running.
   const [startedAt, setStartedAt] = useState(0)
   const [laps, setLaps] = useState<number[]>([])
   const [announcement, setAnnouncement] = useState("Stopwatch ready")
@@ -298,7 +318,7 @@ const Stopwatch = () => {
       setRunning(false)
       setAnnouncement(`Paused at ${formatStopwatch(elapsed)}`)
     } else {
-      setStartedAt(Date.now())
+      setStartedAt(performance.now())
       setRunning(true)
       setAnnouncement("Stopwatch running")
     }
@@ -312,6 +332,7 @@ const Stopwatch = () => {
   const reset = () => {
     setRunning(false)
     setBase(0)
+    setStartedAt(0)
     setLaps([])
     setAnnouncement("Stopwatch reset")
   }
