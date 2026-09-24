@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
 import {
+  STORAGE_KEY,
   formatOffset,
   formatStopwatch,
   isUsableZone,
@@ -99,6 +102,15 @@ describe("spokenTime", () => {
     const noon = { ...base, hour: 12 }
     expect(spokenTime(midnight, true, false)).toBe("12:30 AM")
     expect(spokenTime(noon, true, false)).toBe("12:30 PM")
+  })
+})
+
+describe("storage key", () => {
+  it("stays in sync with the pre-paint skin script in index.html", () => {
+    // The key is duplicated in two files (module + inline script) because the
+    // script must run before the bundle. This test fails loudly if they drift.
+    const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8")
+    expect(html).toContain(`"${STORAGE_KEY}"`)
   })
 })
 

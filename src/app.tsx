@@ -14,8 +14,8 @@ type Settings = {
   skin: Skin
 }
 
-/** Keep in sync with the pre-paint skin script in index.html. */
-const STORAGE_KEY = "chrono.settings.v1"
+/** Keep in sync with the pre-paint skin script in index.html (guarded by a test). */
+export const STORAGE_KEY = "chrono.settings.v1"
 
 const SKINS: { id: Skin; label: string }[] = [
   { id: "phosphor", label: "Phosphor" },
@@ -117,7 +117,7 @@ const useSettings = () => {
  * A self-correcting second-aligned ticker: it re-reads the wall clock every
  * `frameMs` and re-schedules for the next boundary, so the display never drifts.
  */
-const useClockTick = (frameMs = 1000) => {
+export const useClockTick = (frameMs = 1000) => {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -136,7 +136,7 @@ const useClockTick = (frameMs = 1000) => {
 }
 
 /** Re-renders once per animation frame while `active` (smooth stopwatch digits). */
-const useFrames = (active: boolean) => {
+export const useFrames = (active: boolean) => {
   const [frame, setFrame] = useState(0)
 
   useEffect(() => {
@@ -166,12 +166,21 @@ export const pad = (value: number) => String(value).padStart(2, "0")
 
 const formatters = new Map<string, Intl.DateTimeFormat>()
 
+/** The zone list is curated, but cap the cache anyway so a long-lived tab with
+ *  many zone/option combinations (e.g. after a future zone-picker change) can't
+ *  grow it without bound. FIFO eviction is plenty here. */
+const FORMATTER_CACHE_LIMIT = 32
+
 const formatterFor = (timeZone: string, options: Intl.DateTimeFormatOptions) => {
   const key = `${timeZone}|${JSON.stringify(options)}`
   let formatter = formatters.get(key)
   if (!formatter) {
     formatter = new Intl.DateTimeFormat("en-GB", timeZone ? { ...options, timeZone } : options)
     formatters.set(key, formatter)
+    if (formatters.size > FORMATTER_CACHE_LIMIT) {
+      const oldest = formatters.keys().next().value
+      if (oldest !== undefined) formatters.delete(oldest)
+    }
   }
   return formatter
 }
@@ -317,7 +326,7 @@ const AnalogFace = ({
 /*  Stopwatch                                                                  */
 /* -------------------------------------------------------------------------- */
 
-const Stopwatch = () => {
+export const Stopwatch = () => {
   const [running, setRunning] = useState(false)
   const [base, setBase] = useState(0)
   // Monotonic timestamp of the current run's start; 0 when not running.
