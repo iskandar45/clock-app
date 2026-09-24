@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
+import { existsSync, readFileSync } from "node:fs"
+import { dirname, resolve } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
 import {
   STORAGE_KEY,
@@ -109,8 +109,17 @@ describe("storage key", () => {
   it("stays in sync with the pre-paint skin script in index.html", () => {
     // The key is duplicated in two files (module + inline script) because the
     // script must run before the bundle. This test fails loudly if they drift.
-    const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8")
-    expect(html).toContain(`"${STORAGE_KEY}"`)
+    // Walk up from the cwd so it works regardless of where the runner starts.
+    let dir = process.cwd()
+    for (let i = 0; i < 5; i++) {
+      const candidate = resolve(dir, "index.html")
+      if (existsSync(candidate)) {
+        expect(readFileSync(candidate, "utf8")).toContain(`"${STORAGE_KEY}"`)
+        return
+      }
+      dir = dirname(dir)
+    }
+    throw new Error("index.html not found walking up from cwd")
   })
 })
 

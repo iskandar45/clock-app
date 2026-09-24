@@ -166,10 +166,11 @@ export const pad = (value: number) => String(value).padStart(2, "0")
 
 const formatters = new Map<string, Intl.DateTimeFormat>()
 
-/** The zone list is curated, but cap the cache anyway so a long-lived tab with
- *  many zone/option combinations (e.g. after a future zone-picker change) can't
- *  grow it without bound. FIFO eviction is plenty here. */
-const FORMATTER_CACHE_LIMIT = 32
+/** Two cache keys per zone (display + meta) across ~30 zones is ~60 entries,
+ *  so the limit sits just above the working set: a normal zone cycle never
+ *  evicts live formatters, and a future unbounded zone picker still can't grow
+ *  the cache without limit. FIFO eviction is plenty here. */
+const FORMATTER_CACHE_LIMIT = 64
 
 const formatterFor = (timeZone: string, options: Intl.DateTimeFormatOptions) => {
   const key = `${timeZone}|${JSON.stringify(options)}`
