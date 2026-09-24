@@ -3,9 +3,23 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Preact | Clock App</title>
+  <meta name="theme-color" content="#05100a" />
+  <meta
+    name="description"
+    content="Chrono — a phosphor-style clock with an analog face, world time zones, 12/24-hour modes and a lap stopwatch."
+  />
+  <title>Chrono — World Clock &amp; Stopwatch</title>
+  <script>
+    // Apply the saved colour skin before first paint so there is no flash.
+    try {
+      var saved = JSON.parse(localStorage.getItem("chrono.settings.v1") || "{}")
+      if (saved && saved.skin) document.documentElement.dataset.skin = saved.skin
+    } catch (error) {
+      /* storage unavailable — the default skin applies */
+    }
+  </script>
 </head>
 
 <body>
