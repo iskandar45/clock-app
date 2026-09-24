@@ -170,7 +170,7 @@ const formatters = new Map<string, Intl.DateTimeFormat>()
  *  so the limit sits just above the working set: a normal zone cycle never
  *  evicts live formatters, and a future unbounded zone picker still can't grow
  *  the cache without limit. FIFO eviction is plenty here. */
-const FORMATTER_CACHE_LIMIT = 64
+export const FORMATTER_CACHE_LIMIT = 64
 
 const formatterFor = (timeZone: string, options: Intl.DateTimeFormatOptions) => {
   const key = `${timeZone}|${JSON.stringify(options)}`
@@ -184,6 +184,15 @@ const formatterFor = (timeZone: string, options: Intl.DateTimeFormatOptions) => 
     }
   }
   return formatter
+}
+
+/** Test-only view of the formatter cache so eviction can be asserted. */
+export const formatterCache = {
+  get size() {
+    return formatters.size
+  },
+  keys: () => [...formatters.keys()],
+  clear: () => formatters.clear(),
 }
 
 const partOf = (parts: Intl.DateTimeFormatPart[], type: string) =>
